@@ -10,7 +10,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>Free Earning Bot</title>
+    <title>Earning Paid Bot</title>
 
     <link
       rel="stylesheet"
@@ -410,11 +410,37 @@
       .list-item .info .name {
         font-weight: 600;
         font-size: 16px;
+        margin-bottom: 5px;
       }
 
       .list-item .info .detail {
         font-size: 13px;
         color: var(--text-muted-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .list-item .status {
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+      }
+
+      .status-pending {
+        background-color: rgba(241, 196, 15, 0.2);
+        color: #f1c40f;
+      }
+
+      .status-approved {
+        background-color: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+      }
+
+      .status-rejected {
+        background-color: rgba(231, 76, 60, 0.2);
+        color: #e74c3c;
       }
 
       .list-item .score {
@@ -448,6 +474,7 @@
         display: flex;
         align-items: center;
         margin-bottom: 20px;
+        justify-content: space-between;
       }
 
       .referral-icon {
@@ -587,6 +614,7 @@
       .nav-button:hover {
         color: var(--text-color);
         background: rgba(255, 255, 255, 0.05);
+        transform: translateY(-3px);
       }
 
       .nav-button.active {
@@ -699,6 +727,39 @@
         gap: 15px;
       }
 
+      .input-group {
+        margin-bottom: 20px;
+        text-align: left;
+      }
+
+      .input-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-color);
+      }
+
+      .input-field {
+        width: 100%;
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-color);
+        font-size: 16px;
+        transition: var(--transition);
+      }
+
+      .input-field:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.3);
+      }
+
+      .input-field::placeholder {
+        color: var(--text-muted-color);
+      }
+
       .toast {
         position: fixed;
         bottom: 100px;
@@ -763,6 +824,14 @@
         }
       }
 
+      .withdrawal-history {
+        margin-top: 25px;
+      }
+
+      .withdrawal-history .section-title {
+        margin-bottom: 15px;
+      }
+
       @media (max-width: 480px) {
         .container {
           margin: 0;
@@ -782,6 +851,15 @@
         .app-header {
           border-radius: 0;
         }
+        
+        .modal-content {
+          padding: 20px;
+        }
+        
+        .modal-actions {
+          flex-direction: column;
+          gap: 10px;
+        }
       }
     </style>
 
@@ -797,7 +875,7 @@
   <body>
     <div class="container">
       <div class="app-header">
-        <h1 class="app-title">Free Earning Bot</h1>
+        <h1 class="app-title">Earning Paid Bot</h1>
         <p class="app-subtitle">Earn money by completing simple tasks</p>
       </div>
       
@@ -866,6 +944,13 @@
               <i class="fa-solid fa-chevron-right"></i>
             </div>
           </div>
+
+          <div class="withdrawal-history">
+            <h2 class="section-title">Recent Withdrawals</h2>
+            <div id="withdrawal-history-list">
+              <!-- Withdrawal history items will be generated here by JS -->
+            </div>
+          </div>
         </div>
 
         <!-- TASKS VIEW -->
@@ -917,15 +1002,17 @@
           
           <div class="referral-section">
             <div class="referral-header">
-              <div class="referral-icon"><i class="fa-solid fa-user-plus"></i></div>
-              <h3 class="referral-title">Your Referral Code</h3>
+              <div style="display: flex; align-items: center;">
+                <div class="referral-icon"><i class="fa-solid fa-user-plus"></i></div>
+                <h3 class="referral-title">Your Referral Code</h3>
+              </div>
+              <button class="copy-btn" onclick="copyReferralCode()" style="margin: 0;">
+                <i class="fa-solid fa-copy"></i> Copy
+              </button>
             </div>
             
             <div class="referral-code">
               <span class="referral-code-text" id="referral-code">LOADING...</span>
-              <button class="copy-btn" onclick="copyReferralCode()">
-                <i class="fa-solid fa-copy"></i> Copy
-              </button>
             </div>
             
             <p style="font-size: 14px; color: var(--text-muted-color); margin: 10px 0;">
@@ -998,11 +1085,21 @@
     <!-- WITHDRAWAL MODAL -->
     <div class="modal-overlay" id="withdraw-modal">
       <div class="modal-content">
-        <h3>Confirm Withdrawal</h3>
+        <h3>Withdraw Funds</h3>
         <p>
-          You are about to request a withdrawal of your entire balance. Please
-          confirm.
+          Enter your UPI ID to withdraw your available balance. Minimum withdrawal is ₹100.
         </p>
+        
+        <div class="input-group">
+          <label class="input-label" for="upi-id">Your UPI ID</label>
+          <input type="text" id="upi-id" class="input-field" placeholder="yourname@upi" />
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Amount to Withdraw</label>
+          <input type="text" id="withdraw-amount" class="input-field" readonly value="₹0.00" />
+        </div>
+        
         <div class="modal-actions">
           <button
             class="action-button secondary-button"
@@ -1014,7 +1111,7 @@
             class="action-button primary-button"
             onclick="requestWithdraw()"
           >
-            Confirm
+            Confirm Withdrawal
           </button>
         </div>
       </div>
@@ -1031,11 +1128,14 @@
       let referralEarnings = 0.0;
       let referralCount = 0;
       let referralCode = "";
+      let upiId = "";
       let historyLog = [];
+      let withdrawalHistory = [];
       let tgUser = null;
       const pointsPerAd = 1;
       const ratePerPoint = 0.1;
       const referralCommission = 0.05; // 5% commission
+      const MIN_WITHDRAWAL = 100;
 
       // --- Core App Logic ---
       document.addEventListener("DOMContentLoaded", () => {
@@ -1056,6 +1156,7 @@
         loadTelegramUser();
         showView("home-view");
         renderLeaderboard();
+        renderWithdrawalHistory();
         initializeInAppAds();
       }
 
@@ -1121,6 +1222,7 @@
 
         if (viewId === "history-view") renderHistory();
         if (viewId === "referral-view") updateReferralStats();
+        if (viewId === "home-view") renderWithdrawalHistory();
       }
 
       // --- Data Persistence ---
@@ -1133,7 +1235,9 @@
           todayEarnings = data.todayEarnings || 0.0;
           referralEarnings = data.referralEarnings || 0.0;
           referralCount = data.referralCount || 0;
+          upiId = data.upiId || "";
           historyLog = data.historyLog || [];
+          withdrawalHistory = data.withdrawalHistory || [];
         }
         updateDisplay();
       }
@@ -1141,7 +1245,16 @@
       function saveData() {
         localStorage.setItem(
           "Get Earn Money",
-          JSON.stringify({ points, balance, todayEarnings, referralEarnings, referralCount, historyLog })
+          JSON.stringify({ 
+            points, 
+            balance, 
+            todayEarnings, 
+            referralEarnings, 
+            referralCount, 
+            upiId,
+            historyLog, 
+            withdrawalHistory 
+          })
         );
       }
 
@@ -1150,6 +1263,11 @@
         document.getElementById("balance-value").textContent = `₹${balance.toFixed(2)}`;
         document.getElementById("today-earnings").textContent = `₹${todayEarnings.toFixed(2)}`;
         document.getElementById("referral-earnings").textContent = `₹${referralEarnings.toFixed(2)}`;
+        document.getElementById("withdraw-amount").value = `₹${balance.toFixed(2)}`;
+        
+        if (upiId) {
+          document.getElementById("upi-id").value = upiId;
+        }
       }
 
       function updateReferralStats() {
@@ -1215,6 +1333,52 @@
           .join("");
       }
 
+      // --- Withdrawal History ---
+      function addToWithdrawalHistory(amount, upi, status) {
+        const timestamp = new Date().toISOString();
+        withdrawalHistory.unshift({ amount, upi, status, timestamp });
+        if (withdrawalHistory.length > 10) withdrawalHistory.pop();
+        saveData();
+        renderWithdrawalHistory();
+      }
+
+      function renderWithdrawalHistory() {
+        const list = document.getElementById("withdrawal-history-list");
+        if (withdrawalHistory.length === 0) {
+          list.innerHTML = `<div class="list-item"><div class="info"><div class="name">No withdrawal history yet.</div><div class="detail">Withdraw your earnings to see history here.</div></div></div>`;
+          return;
+        }
+
+        list.innerHTML = withdrawalHistory
+          .map((item) => {
+            let statusClass, statusText;
+            if (item.status === "pending") {
+              statusClass = "status-pending";
+              statusText = "Pending";
+            } else if (item.status === "approved") {
+              statusClass = "status-approved";
+              statusText = "Approved";
+            } else {
+              statusClass = "status-rejected";
+              statusText = "Rejected";
+            }
+
+            return `
+              <div class="list-item">
+                <div class="history-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                <div class="info">
+                  <div class="name">Withdrawal: ₹${item.amount.toFixed(2)}</div>
+                  <div class="detail">
+                    <span><i class="fa-solid fa-receipt"></i> ${item.upi}</span>
+                    <span><i class="fa-solid fa-clock"></i> ${new Date(item.timestamp).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div class="status ${statusClass}">${statusText}</div>
+              </div>`;
+          })
+          .join("");
+      }
+
       // --- Leaderboard Logic ---
       function renderLeaderboard() {
         const leaderboardData = [
@@ -1272,11 +1436,13 @@
 
       // --- Withdrawal Logic ---
       function openWithdrawModal() {
-        if (balance < 100) {
+        if (balance < MIN_WITHDRAWAL) {
           Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-          showToast("Minimum withdrawal is ₹100. Keep earning!", "error");
+          showToast(`Minimum withdrawal is ₹${MIN_WITHDRAWAL}. Keep earning!`, "error");
           return;
         }
+        
+        document.getElementById("withdraw-amount").value = `₹${balance.toFixed(2)}`;
         document.getElementById("withdraw-modal").classList.add("active");
       }
 
@@ -1284,12 +1450,32 @@
         document.getElementById("withdraw-modal").classList.remove("active");
       }
 
+      function validateUPIId(upiId) {
+        const upiRegex = /^[a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,}$/;
+        return upiRegex.test(upiId);
+      }
+
       function requestWithdraw() {
+        const upiInput = document.getElementById("upi-id").value.trim();
+        
+        if (!upiInput) {
+          showToast("Please enter your UPI ID", "error");
+          return;
+        }
+        
+        if (!validateUPIId(upiInput)) {
+          showToast("Please enter a valid UPI ID (e.g. name@upi)", "error");
+          return;
+        }
+        
+        // Save UPI ID for future use
+        upiId = upiInput;
+        
         closeWithdrawModal();
         const botToken = "8431322814:AAHHRR4OvKKkaB_UOqpP6hHmALC4EiYCxB8";
         const adminUserId = "7924205319";
         const userInfo = tgUser ? `@${tgUser.username} (ID: ${tgUser.id})` : "Unknown User";
-        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n💰 *Amount:* ₹${balance.toFixed(2)}\n\n_Please process this request._`;
+        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* ₹${balance.toFixed(2)}\n\n_Please approve or reject this request._`;
 
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST",
@@ -1298,6 +1484,14 @@
             chat_id: adminUserId,
             text: message,
             parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "✅ Approve", callback_data: `approve_${tgUser?.id || "unknown"}_${balance}` },
+                  { text: "❌ Reject", callback_data: `reject_${tgUser?.id || "unknown"}_${balance}` }
+                ]
+              ]
+            }
           }),
         })
           .then((res) => res.json())
@@ -1305,7 +1499,8 @@
             if (data.ok) {
               Telegram.WebApp.HapticFeedback.notificationOccurred("success");
               showToast("Withdrawal request sent successfully!", "success");
-              addToHistory("withdraw", `Request for ₹${balance.toFixed(2)}`);
+              addToHistory("withdraw", `Request for ₹${balance.toFixed(2)} to ${upiId}`);
+              addToWithdrawalHistory(balance, upiId, "pending");
               
               // Reset balance after withdrawal request
               balance = 0;
@@ -1361,7 +1556,3 @@
     </script>
   </body>
 </html>
-
-
-
-
