@@ -309,6 +309,7 @@
         padding: 5px 10px;
         border-radius: 20px;
         font-weight: 600;
+        margin-left: 10px;
       }
 
       .task-card {
@@ -353,6 +354,7 @@
         margin: 5px 0 0;
         font-size: 14px;
         color: var(--text-muted-color);
+        line-height: 1.4;
       }
 
       .task-arrow {
@@ -419,6 +421,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-wrap: wrap;
       }
 
       .list-item .status {
@@ -426,6 +429,7 @@
         padding: 4px 10px;
         border-radius: 20px;
         font-weight: 600;
+        white-space: nowrap;
       }
 
       .status-pending {
@@ -552,6 +556,10 @@
         padding: 15px;
         text-align: center;
         transition: var(--transition);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 80px;
       }
 
       .referral-stat:hover {
@@ -859,6 +867,19 @@
         .modal-actions {
           flex-direction: column;
           gap: 10px;
+        }
+        
+        .task-details p {
+          font-size: 13px;
+        }
+        
+        .referral-stat {
+          padding: 12px;
+          min-height: 70px;
+        }
+        
+        .referral-stat-value {
+          font-size: 20px;
         }
       }
     </style>
@@ -1342,6 +1363,26 @@
         renderWithdrawalHistory();
       }
 
+      function updateWithdrawalStatus(timestamp, newStatus) {
+        const withdrawal = withdrawalHistory.find(w => w.timestamp === timestamp);
+        if (withdrawal) {
+          withdrawal.status = newStatus;
+          saveData();
+          renderWithdrawalHistory();
+          
+          // If rejected, refund the balance
+          if (newStatus === "rejected") {
+            balance += withdrawal.amount;
+            points = balance / ratePerPoint;
+            updateDisplay();
+            addToHistory("refund", `Withdrawal refund: ₹${withdrawal.amount.toFixed(2)}`);
+            showToast(`Withdrawal rejected. ₹${withdrawal.amount.toFixed(2)} refunded to your balance.`, "success");
+          } else if (newStatus === "approved") {
+            showToast(`Withdrawal approved! ₹${withdrawal.amount.toFixed(2)} sent to your UPI ID.`, "success");
+          }
+        }
+      }
+
       function renderWithdrawalHistory() {
         const list = document.getElementById("withdrawal-history-list");
         if (withdrawalHistory.length === 0) {
@@ -1475,7 +1516,8 @@
         const botToken = "8431322814:AAHHRR4OvKKkaB_UOqpP6hHmALC4EiYCxB8";
         const adminUserId = "7924205319";
         const userInfo = tgUser ? `@${tgUser.username} (ID: ${tgUser.id})` : "Unknown User";
-        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* ₹${balance.toFixed(2)}\n\n_Please approve or reject this request._`;
+        const timestamp = new Date().toISOString();
+        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* ₹${balance.toFixed(2)}\n⏰ *Time:* ${new Date().toLocaleString()}\n\n_Please approve or reject this request._`;
 
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST",
@@ -1487,8 +1529,14 @@
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: "✅ Approve", callback_data: `approve_${tgUser?.id || "unknown"}_${balance}` },
-                  { text: "❌ Reject", callback_data: `reject_${tgUser?.id || "unknown"}_${balance}` }
+                  { 
+                    text: "✅ Approve", 
+                    callback_data: `approve_${tgUser?.id || "unknown"}_${balance}_${timestamp}` 
+                  },
+                  { 
+                    text: "❌ Reject", 
+                    callback_data: `reject_${tgUser?.id || "unknown"}_${balance}_${timestamp}` 
+                  }
                 ]
               ]
             }
@@ -1503,6 +1551,7 @@
               addToWithdrawalHistory(balance, upiId, "pending");
               
               // Reset balance after withdrawal request
+              const withdrawnAmount = balance;
               balance = 0;
               points = 0;
               updateDisplay();
@@ -1553,7 +1602,25 @@
           toast.style.display = "none";
         }, 3000);
       }
+
+      // --- Simulate Admin Response (for demo purposes) ---
+      // In a real application, this would be handled by the bot's backend
+      function simulateAdminResponse() {
+        // Simulate admin approving or rejecting after 10 seconds
+        setTimeout(() => {
+          if (withdrawalHistory.length > 0) {
+            const latestWithdrawal = withdrawalHistory[0];
+            if (latestWithdrawal.status === "pending") {
+              // Randomly approve or reject for demo
+              const isApproved = Math.random() > 0.3;
+              updateWithdrawalStatus(
+                latestWithdrawal.timestamp, 
+                isApproved ? "approved" : "rejected"
+              );
+            }
+          }
+        }, 10000);
+      }
     </script>
   </body>
 </html>
-
