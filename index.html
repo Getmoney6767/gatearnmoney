@@ -284,6 +284,10 @@
         font-weight: 700;
         color: var(--primary-color);
         margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
       }
 
       .stat-card .label {
@@ -362,6 +366,10 @@
         font-size: 18px;
         color: var(--text-muted-color);
         transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
       }
 
       .task-card:hover .task-arrow {
@@ -451,12 +459,17 @@
         font-size: 18px;
         font-weight: 700;
         color: var(--accent-color);
+        white-space: nowrap;
       }
 
       .history-icon {
         color: var(--primary-color);
         margin-right: 15px;
         font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
       }
 
       .referral-section {
@@ -492,6 +505,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
       }
 
       .referral-title {
@@ -514,6 +528,7 @@
 
       .referral-code:hover {
         background: rgba(253, 121, 168, 0.15);
+        transform: translateY(-2px);
       }
 
       .referral-code-text {
@@ -521,6 +536,8 @@
         font-size: 18px;
         letter-spacing: 1px;
         font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .copy-btn {
@@ -535,6 +552,7 @@
         display: flex;
         align-items: center;
         gap: 5px;
+        flex-shrink: 0;
       }
 
       .copy-btn:hover {
@@ -805,6 +823,10 @@
         border-left-color: var(--warning-color);
       }
 
+      .toast.info {
+        border-left-color: var(--primary-color);
+      }
+
       .floating-notification {
         position: fixed;
         top: 20px;
@@ -838,6 +860,21 @@
 
       .withdrawal-history .section-title {
         margin-bottom: 15px;
+      }
+
+      .info-text {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 15px;
+        margin: 15px 0;
+        font-size: 14px;
+        color: var(--text-muted-color);
+        border-left: 3px solid var(--primary-color);
+      }
+
+      .info-text i {
+        color: var(--primary-color);
+        margin-right: 8px;
       }
 
       @media (max-width: 480px) {
@@ -881,6 +918,20 @@
         .referral-stat-value {
           font-size: 20px;
         }
+        
+        .section-title {
+          font-size: 18px;
+        }
+        
+        .referral-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 15px;
+        }
+        
+        .referral-header .copy-btn {
+          align-self: stretch;
+        }
       }
     </style>
 
@@ -922,11 +973,11 @@
 
           <div class="stats-container">
             <div class="stat-card">
-              <div class="value" id="today-earnings">₹0.00</div>
+              <div class="value"><i class="fa-solid fa-indian-rupee-sign"></i><span id="today-earnings">0.00</span></div>
               <div class="label">Today</div>
             </div>
             <div class="stat-card">
-              <div class="value" id="referral-earnings">₹0.00</div>
+              <div class="value"><i class="fa-solid fa-users"></i><span id="referral-earnings">0</span></div>
               <div class="label">Referrals</div>
             </div>
           </div>
@@ -998,6 +1049,11 @@
               <p>View a popup ad for quick points.</p>
             </div>
             <div class="task-arrow"><i class="fa-solid fa-play"></i></div>
+          </div>
+
+          <div class="info-text">
+            <i class="fa-solid fa-circle-info"></i>
+            Complete tasks to earn points. Each point is worth ₹0.10. Withdraw your earnings when you reach ₹1.
           </div>
         </div>
 
@@ -1108,7 +1164,7 @@
       <div class="modal-content">
         <h3>Withdraw Funds</h3>
         <p>
-          Enter your UPI ID to withdraw your available balance. Minimum withdrawal is ₹1000.
+          Enter your UPI ID to withdraw your available balance. Minimum withdrawal is ₹100.
         </p>
         
         <div class="input-group">
@@ -1156,7 +1212,7 @@
       const pointsPerAd = 1;
       const ratePerPoint = 0.1;
       const referralCommission = 0.05; // 5% commission
-      const MIN_WITHDRAWAL = 1000;
+      const MIN_WITHDRAWAL = 1;
 
       // --- Core App Logic ---
       document.addEventListener("DOMContentLoaded", () => {
@@ -1282,8 +1338,8 @@
       function updateDisplay() {
         document.getElementById("points-value").textContent = points;
         document.getElementById("balance-value").textContent = `₹${balance.toFixed(2)}`;
-        document.getElementById("today-earnings").textContent = `₹${todayEarnings.toFixed(2)}`;
-        document.getElementById("referral-earnings").textContent = `₹${referralEarnings.toFixed(2)}`;
+        document.getElementById("today-earnings").textContent = todayEarnings.toFixed(2);
+        document.getElementById("referral-earnings").textContent = referralCount;
         document.getElementById("withdraw-amount").value = `₹${balance.toFixed(2)}`;
         
         if (upiId) {
@@ -1337,6 +1393,9 @@
             } else if (item.type === "referral") {
               icon = 'fa-user-plus';
               color = 'var(--referral-color)';
+            } else if (item.type === "refund") {
+              icon = 'fa-rotate-left';
+              color = 'var(--success-color)';
             } else {
               icon = 'fa-info-circle';
               color = 'var(--text-muted-color)';
@@ -1355,8 +1414,7 @@
       }
 
       // --- Withdrawal History ---
-      function addToWithdrawalHistory(amount, upi, status) {
-        const timestamp = new Date().toISOString();
+      function addToWithdrawalHistory(amount, upi, status, timestamp) {
         withdrawalHistory.unshift({ amount, upi, status, timestamp });
         if (withdrawalHistory.length > 10) withdrawalHistory.pop();
         saveData();
@@ -1455,7 +1513,9 @@
         addToHistory("earn", `+${pointsPerAd} Point(s) from Ad`);
         saveData();
         
-        Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+        }
         showToast(`+${pointsPerAd} point earned! ₹${earned.toFixed(2)} added to balance.`, "success");
       }
 
@@ -1478,7 +1538,9 @@
       // --- Withdrawal Logic ---
       function openWithdrawModal() {
         if (balance < MIN_WITHDRAWAL) {
-          Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+          }
           showToast(`Minimum withdrawal is ₹${MIN_WITHDRAWAL}. Keep earning!`, "error");
           return;
         }
@@ -1515,8 +1577,16 @@
         closeWithdrawModal();
         const botToken = "8431322814:AAHHRR4OvKKkaB_UOqpP6hHmALC4EiYCxB8";
         const adminUserId = "7924205319";
-        const userInfo = tgUser ? `@${tgUser.username} (ID: ${tgUser.id})` : "Unknown User";
+        const userInfo = tgUser ? `@${tgUser.username || 'NoUsername'} (ID: ${tgUser.id})` : "Unknown User";
         const timestamp = new Date().toISOString();
+        
+        // Create a unique ID for this withdrawal request
+        const withdrawalId = Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+        
+        // Shorten the callback data to fit Telegram's 64-byte limit
+        const callbackDataApprove = `appr_${withdrawalId}`;
+        const callbackDataReject = `rej_${withdrawalId}`;
+        
         const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* ₹${balance.toFixed(2)}\n⏰ *Time:* ${new Date().toLocaleString()}\n\n_Please approve or reject this request._`;
 
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -1531,11 +1601,11 @@
                 [
                   { 
                     text: "✅ Approve", 
-                    callback_data: `approve_${tgUser?.id || "unknown"}_${balance}_${timestamp}` 
+                    callback_data: callbackDataApprove
                   },
                   { 
                     text: "❌ Reject", 
-                    callback_data: `reject_${tgUser?.id || "unknown"}_${balance}_${timestamp}` 
+                    callback_data: callbackDataReject
                   }
                 ]
               ]
@@ -1545,26 +1615,59 @@
           .then((res) => res.json())
           .then((data) => {
             if (data.ok) {
-              Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+              if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+              }
               showToast("Withdrawal request sent successfully!", "success");
               addToHistory("withdraw", `Request for ₹${balance.toFixed(2)} to ${upiId}`);
-              addToWithdrawalHistory(balance, upiId, "pending");
+              addToWithdrawalHistory(balance, upiId, "pending", withdrawalId);
+              
+              // Store the withdrawal ID for later reference
+              const withdrawalIndex = withdrawalHistory.findIndex(w => w.timestamp === withdrawalId);
+              if (withdrawalIndex !== -1) {
+                withdrawalHistory[withdrawalIndex].messageId = data.result.message_id;
+                saveData();
+              }
               
               // Reset balance after withdrawal request
-              const withdrawnAmount = balance;
               balance = 0;
               points = 0;
               updateDisplay();
               saveData();
+              
+              // Simulate admin response after 10 seconds (for demo)
+              simulateAdminResponse(withdrawalId);
             } else {
-              Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+              if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+              }
               showToast("Failed to send request. Try again later.", "error");
             }
           })
           .catch((err) => {
-            Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+            }
             showToast("Network error. Check your connection.", "error");
           });
+      }
+
+      // --- Simulate Admin Response (for demo purposes) ---
+      function simulateAdminResponse(withdrawalId) {
+        // Simulate admin approving or rejecting after 10 seconds
+        setTimeout(() => {
+          if (withdrawalHistory.length > 0) {
+            const withdrawal = withdrawalHistory.find(w => w.timestamp === withdrawalId);
+            if (withdrawal && withdrawal.status === "pending") {
+              // Randomly approve or reject for demo
+              const isApproved = Math.random() > 0.3;
+              updateWithdrawalStatus(
+                withdrawalId, 
+                isApproved ? "approved" : "rejected"
+              );
+            }
+          }
+        }, 10000);
       }
 
       // --- Referral System ---
@@ -1588,7 +1691,11 @@
         const text = `🎉 Join this amazing bot and start earning! Use my link to get a special bonus:`;
         const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(text)}`;
         
-        Telegram.WebApp.openTelegramLink(shareUrl);
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.openTelegramLink(shareUrl);
+        } else {
+          showToast("Please share this link: " + referralLink, "info");
+        }
       }
 
       // --- Toast Notification ---
@@ -1602,26 +1709,6 @@
           toast.style.display = "none";
         }, 3000);
       }
-
-      // --- Simulate Admin Response (for demo purposes) ---
-      // In a real application, this would be handled by the bot's backend
-      function simulateAdminResponse() {
-        // Simulate admin approving or rejecting after 10 seconds
-        setTimeout(() => {
-          if (withdrawalHistory.length > 0) {
-            const latestWithdrawal = withdrawalHistory[0];
-            if (latestWithdrawal.status === "pending") {
-              // Randomly approve or reject for demo
-              const isApproved = Math.random() > 0.3;
-              updateWithdrawalStatus(
-                latestWithdrawal.timestamp, 
-                isApproved ? "approved" : "rejected"
-              );
-            }
-          }
-        }, 10000);
-      }
     </script>
   </body>
 </html>
-
