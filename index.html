@@ -1272,9 +1272,9 @@
 
       // --- Withdrawal Logic ---
       function openWithdrawModal() {
-        if (balance < 2) {
+        if (balance < 100) {
           Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-          showToast("Minimum withdrawal is ₹2. Keep earning!", "error");
+          showToast("Minimum withdrawal is ₹100. Keep earning!", "error");
           return;
         }
         document.getElementById("withdraw-modal").classList.add("active");
@@ -1361,5 +1361,6 @@
     </script>
   </body>
 </html>
+
 
 
