@@ -746,6 +746,7 @@
         color: var(--text-muted-color);
         margin-bottom: 25px;
         line-height: 1.5;
+        font-size: 14px;
       }
 
       .modal-actions {
@@ -1235,6 +1236,9 @@
         renderLeaderboard();
         renderWithdrawalHistory();
         initializeInAppAds();
+        
+        // Start polling for withdrawal status updates
+        startWithdrawalStatusPolling();
       }
 
       function checkReferral() {
@@ -1414,15 +1418,15 @@
       }
 
       // --- Withdrawal History ---
-      function addToWithdrawalHistory(amount, upi, status, timestamp) {
-        withdrawalHistory.unshift({ amount, upi, status, timestamp });
+      function addToWithdrawalHistory(amount, upi, status, timestamp, withdrawalId) {
+        withdrawalHistory.unshift({ amount, upi, status, timestamp, withdrawalId });
         if (withdrawalHistory.length > 10) withdrawalHistory.pop();
         saveData();
         renderWithdrawalHistory();
       }
 
-      function updateWithdrawalStatus(timestamp, newStatus) {
-        const withdrawal = withdrawalHistory.find(w => w.timestamp === timestamp);
+      function updateWithdrawalStatus(withdrawalId, newStatus) {
+        const withdrawal = withdrawalHistory.find(w => w.withdrawalId === withdrawalId);
         if (withdrawal) {
           withdrawal.status = newStatus;
           saveData();
@@ -1620,10 +1624,10 @@
               }
               showToast("Withdrawal request sent successfully!", "success");
               addToHistory("withdraw", `Request for ₹${balance.toFixed(2)} to ${upiId}`);
-              addToWithdrawalHistory(balance, upiId, "pending", withdrawalId);
+              addToWithdrawalHistory(balance, upiId, "pending", timestamp, withdrawalId);
               
               // Store the withdrawal ID for later reference
-              const withdrawalIndex = withdrawalHistory.findIndex(w => w.timestamp === withdrawalId);
+              const withdrawalIndex = withdrawalHistory.findIndex(w => w.withdrawalId === withdrawalId);
               if (withdrawalIndex !== -1) {
                 withdrawalHistory[withdrawalIndex].messageId = data.result.message_id;
                 saveData();
@@ -1634,9 +1638,6 @@
               points = 0;
               updateDisplay();
               saveData();
-              
-              // Simulate admin response after 10 seconds (for demo)
-              simulateAdminResponse(withdrawalId);
             } else {
               if (window.Telegram && Telegram.WebApp) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred("error");
@@ -1652,22 +1653,32 @@
           });
       }
 
-      // --- Simulate Admin Response (for demo purposes) ---
-      function simulateAdminResponse(withdrawalId) {
-        // Simulate admin approving or rejecting after 10 seconds
-        setTimeout(() => {
-          if (withdrawalHistory.length > 0) {
-            const withdrawal = withdrawalHistory.find(w => w.timestamp === withdrawalId);
-            if (withdrawal && withdrawal.status === "pending") {
-              // Randomly approve or reject for demo
+      // --- Polling for Withdrawal Status Updates ---
+      function startWithdrawalStatusPolling() {
+        // Poll every 30 seconds for status updates
+        setInterval(() => {
+          checkWithdrawalStatusUpdates();
+        }, 30000);
+      }
+
+      function checkWithdrawalStatusUpdates() {
+        // This would normally connect to your backend to check for updates
+        // For demo purposes, we'll simulate some responses
+        const pendingWithdrawals = withdrawalHistory.filter(w => w.status === "pending");
+        
+        if (pendingWithdrawals.length > 0) {
+          // Simulate some responses for demo
+          pendingWithdrawals.forEach(withdrawal => {
+            // 30% chance of getting a response on each poll (for demo only)
+            if (Math.random() < 0.3) {
               const isApproved = Math.random() > 0.3;
               updateWithdrawalStatus(
-                withdrawalId, 
+                withdrawal.withdrawalId, 
                 isApproved ? "approved" : "rejected"
               );
             }
-          }
-        }, 10000);
+          });
+        }
       }
 
       // --- Referral System ---
