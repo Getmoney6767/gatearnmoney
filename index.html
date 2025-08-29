@@ -17,6 +17,10 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     />
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
       :root {
         --primary-color: #6c5ce7;
@@ -308,7 +312,7 @@
 
       .section-title .badge {
         background: var(--primary-color);
-        color: #000;
+        color: white;
         font-size: 12px;
         padding: 5px 10px;
         border-radius: 20px;
@@ -415,12 +419,16 @@
 
       .list-item .info {
         flex-grow: 1;
+        overflow: hidden;
       }
 
       .list-item .info .name {
         font-weight: 600;
         font-size: 16px;
         margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .list-item .info .detail {
@@ -470,6 +478,7 @@
         align-items: center;
         justify-content: center;
         min-width: 24px;
+        flex-shrink: 0;
       }
 
       .referral-section {
@@ -485,6 +494,7 @@
       .referral-section:hover {
         transform: translateY(-3px);
         box-shadow: 0 12px 25px rgba(0, 0, 0, 0.25);
+        background: rgba(45, 52, 54, 0.8);
       }
 
       .referral-header {
@@ -635,6 +645,11 @@
         font-size: 22px;
         margin-bottom: 4px;
         transition: var(--transition);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 24px;
+        height: 24px;
       }
 
       .nav-button:hover {
@@ -933,6 +948,36 @@
         .referral-header .copy-btn {
           align-self: stretch;
         }
+        
+        .list-item .info .name {
+          font-size: 14px;
+        }
+        
+        .list-item .info .detail {
+          font-size: 12px;
+        }
+      }
+
+      .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: var(--primary-color);
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .firebase-loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
       }
     </style>
 
@@ -1199,6 +1244,21 @@
     <div class="toast" id="toast"></div>
 
     <script>
+      // --- Firebase Configuration ---
+      // আপনার Firebase configuration এখানে বসান
+      const firebaseConfig = {
+        apiKey: "AIzaSyCC1oHpMbb2UYU2PDusogodFVuz_wlJGYk",
+        authDomain: "gat-earning-money.firebaseapp.com",
+        projectId: "gat-earning-money",
+        storageBucket: "gat-earning-money.firebasestorage.app",
+        messagingSenderId: "151301371096",
+        appId: "1:151301371096:web:bcdbb6910b999c436053ad"
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
       // --- State Variables ---
       let points = 0;
       let balance = 0.0;
@@ -1227,9 +1287,10 @@
           tgUser = Telegram.WebApp.initDataUnsafe.user;
         }
 
-        // Check if user was referred
-        checkReferral();
+        // Firebase থেকে ডাটা লোড করুন
+        loadOrRegisterUser();
         
+        // লোকাল ডাটাও লোড করুন (ফ্যালব্যাক হিসেবে)
         loadData();
         loadTelegramUser();
         showView("home-view");
@@ -1241,7 +1302,197 @@
         startWithdrawalStatusPolling();
       }
 
-      function checkReferral() {
+      // --- Firebase Functions ---
+
+      // ব্যবহারকারী রেজিস্টার বা লোড করার ফাংশন
+      async function loadOrRegisterUser() {
+        if (!tgUser) {
+          // Fallback to local storage if no Telegram user
+          loadData();
+          return;
+        }
+        
+        try {
+          const userDoc = await db.collection('users').doc(tgUser.id.toString()).get();
+          
+          if (userDoc.exists) {
+            // ব্যবহারকারী存在的情况下
+            const userData = userDoc.data();
+            points = userData.points || 0;
+            balance = userData.balance || 0;
+            todayEarnings = userData.todayEarnings || 0;
+            referralEarnings = userData.referralEarnings || 0;
+            referralCount = userData.referralCount || 0;
+            referralCode = userData.referralCode || getUserRefCode();
+            upiId = userData.upiId || "";
+            
+            updateDisplay();
+            updateReferralStats();
+          } else {
+            // নতুন ব্যবহারকারী রেজিস্টার করুন
+            await registerUser();
+          }
+        } catch (error) {
+          console.error('Error loading user:', error);
+          // Fallback to local storage
+          loadData();
+        }
+      }
+
+      // নতুন ব্যবহারকারী রেজিস্টার করার ফাংশন
+      async function registerUser() {
+        if (!tgUser) return;
+        
+        try {
+          referralCode = getUserRefCode();
+          const userData = {
+            telegramId: tgUser.id,
+            name: tgUser.first_name || 'Telegram User',
+            balance: 0,
+            points: 0,
+            earnings: 0,
+            todayEarnings: 0,
+            referralEarnings: 0,
+            referralCount: 0,
+            referralCode: referralCode,
+            upiId: "",
+            createdAt: new Date(),
+            lastLogin: new Date()
+          };
+          
+          await db.collection('users').doc(tgUser.id.toString()).set(userData);
+          
+          // Check if user was referred
+          checkReferral();
+          
+          updateDisplay();
+          updateReferralStats();
+        } catch (error) {
+          console.error('Error registering user:', error);
+        }
+      }
+
+      // পয়েন্ট যোগ করার ফাংশন
+      async function addPointsFirebase(pointsToAdd) {
+        if (!tgUser) {
+          // Fallback to local storage if no Firebase
+          points += pointsToAdd;
+          const earned = pointsToAdd * ratePerPoint;
+          balance += earned;
+          todayEarnings += earned;
+          
+          updateDisplay();
+          addToHistory("earn", `+${pointsToAdd} Point(s) from Ad`);
+          saveData();
+          
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+          }
+          showToast(`+${pointsToAdd} point earned! ₹${earned.toFixed(2)} added to balance.`, "success");
+          return;
+        }
+        
+        try {
+          const earned = pointsToAdd * ratePerPoint;
+          
+          await db.collection('users').doc(tgUser.id.toString()).update({
+            points: firebase.firestore.FieldValue.increment(pointsToAdd),
+            balance: firebase.firestore.FieldValue.increment(earned),
+            earnings: firebase.firestore.FieldValue.increment(earned),
+            todayEarnings: firebase.firestore.FieldValue.increment(earned),
+            lastLogin: new Date()
+          });
+          
+          // রেফারারকে কমিশন দিন (যদি থাকে)
+          await addReferralCommission(earned);
+          
+          // লোকাল স্টেট আপডেট করুন
+          points += pointsToAdd;
+          balance += earned;
+          todayEarnings += earned;
+          
+          updateDisplay();
+          addToHistory("earn", `+${pointsToAdd} Point(s) from Ad`);
+          
+          // লোকাল স্টোরেজেও সেভ করুন
+          saveData();
+          
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+          }
+          showToast(`+${pointsToAdd} point earned! ₹${earned.toFixed(2)} added to balance.`, "success");
+        } catch (error) {
+          console.error('Error adding points:', error);
+          showToast("Error updating points. Please try again.", "error");
+        }
+      }
+
+      // রেফারেল কমিশন যোগ করার ফাংশন
+      async function addReferralCommission(earnedAmount) {
+        try {
+          const userDoc = await db.collection('users').doc(tgUser.id.toString()).get();
+          if (!userDoc.exists) return;
+          
+          const userData = userDoc.data();
+          if (!userData.referredBy) return;
+          
+          // রেফারার খুঁজুন
+          const referrerQuery = await db.collection('users').where('referralCode', '==', userData.referredBy).get();
+          if (referrerQuery.empty) return;
+          
+          const referrerDoc = referrerQuery.docs[0];
+          const commission = earnedAmount * referralCommission;
+          
+          // রেফারারকে কমিশন দিন
+          await db.collection('users').doc(referrerDoc.id).update({
+            balance: firebase.firestore.FieldValue.increment(commission),
+            referralEarnings: firebase.firestore.FieldValue.increment(commission),
+            referralCount: firebase.firestore.FieldValue.increment(1)
+          });
+          
+          // রেফারেল হিস্ট্রি সেভ করুন
+          await db.collection('referrals').add({
+            referrerId: referrerDoc.id,
+            referredId: tgUser.id,
+            commissionEarned: commission,
+            date: new Date()
+          });
+          
+          // লোকাল স্টেট আপডেট করুন
+          referralEarnings += commission;
+          referralCount += 1;
+          
+        } catch (error) {
+          console.error('Error adding referral commission:', error);
+        }
+      }
+
+      // রেফারেল চেক করার ফাংশন
+      async function checkReferral() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const refCode = urlParams.get('ref');
+        
+        if (refCode && refCode !== getUserRefCode()) {
+          try {
+            // রেফারার exists কিনা check করুন
+            const referrerQuery = await db.collection('users').where('referralCode', '==', refCode).get();
+            
+            if (!referrerQuery.empty) {
+              // ইউজার আপডেট করুন referredBy field সহ
+              await db.collection('users').doc(tgUser.id.toString()).update({
+                referredBy: refCode
+              });
+              
+              addToHistory("referral", `Referred by: ${refCode}`);
+              showToast("Referral applied successfully!", "success");
+            }
+          } catch (error) {
+            console.error('Error applying referral:', error);
+          }
+        }
+      }
+
+      function checkReferralOld() {
         const urlParams = new URLSearchParams(window.location.search);
         const refCode = urlParams.get('ref');
         
@@ -1367,6 +1618,8 @@
           } else {
             profilePicDiv.textContent = (tgUser.first_name || "U").charAt(0);
           }
+        } else {
+          document.getElementById("username").textContent = "Guest User";
         }
       }
 
@@ -1485,11 +1738,11 @@
       // --- Leaderboard Logic ---
       function renderLeaderboard() {
         const leaderboardData = [
-          { name: "CryptoKing", score: 2540, avatar: "https://i.pravatar.cc/150?img=1" },
-          { name: "Elena", score: 2210, avatar: "https://i.pravatar.cc/150?img=2" },
-          { name: "ProMiner", score: 1980, avatar: "https://i.pravatar.cc/150?img=3" },
-          { name: "Aisha", score: 1750, avatar: "https://i.pravatar.cc/150?img=4" },
-          { name: "BotMaster", score: 1530, avatar: "https://i.pravatar.cc/150?img=5" },
+          { name: "CryptoKing", score: 2540, avatar: "CK" },
+          { name: "Elena", score: 2210, avatar: "EL" },
+          { name: "ProMiner", score: 1980, avatar: "PM" },
+          { name: "Aisha", score: 1750, avatar: "AI" },
+          { name: "BotMaster", score: 1530, avatar: "BM" },
         ];
 
         document.getElementById("leaderboard-list").innerHTML = leaderboardData
@@ -1497,7 +1750,7 @@
             (user, index) => `
             <div class="list-item">
               <div class="rank">#${index + 1}</div>
-              <img src="${user.avatar}" class="avatar" alt="Avatar">
+              <div class="avatar">${user.avatar}</div>
               <div class="info"><div class="name">${user.name}</div></div>
               <div class="score">${user.score} pts</div>
             </div>
@@ -1508,19 +1761,8 @@
 
       // --- Earning Functions ---
       function grantReward() {
-        points += pointsPerAd;
-        const earned = pointsPerAd * ratePerPoint;
-        balance += earned;
-        todayEarnings += earned;
-        
-        updateDisplay();
-        addToHistory("earn", `+${pointsPerAd} Point(s) from Ad`);
-        saveData();
-        
-        if (window.Telegram && Telegram.WebApp) {
-          Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-        }
-        showToast(`+${pointsPerAd} point earned! ₹${earned.toFixed(2)} added to balance.`, "success");
+        // Firebase-এ পয়েন্ট যোগ করুন
+        addPointsFirebase(pointsPerAd);
       }
 
       function showRewardedInterstitial() {
@@ -1570,13 +1812,22 @@
           return;
         }
         
-        if (!validateUPIId(upiInput)) {
-          showToast("Please enter a valid UPI ID (e.g. name@upi)", "error");
+        if (!validateUPIId(upiInput) && !upiInput.includes("@ybl") && !upiInput.includes("@oksbi") && !upiInput.includes("@axl") && !upiInput.includes("@paytm")) {
+          showToast("Please enter a valid UPI ID (e.g. name@upi, name@ybl, name@oksbi)", "error");
           return;
         }
         
         // Save UPI ID for future use
         upiId = upiInput;
+        
+        // Firebase-এ UPI ID সেভ করুন
+        if (tgUser) {
+          db.collection('users').doc(tgUser.id.toString()).update({
+            upiId: upiId
+          }).catch(error => {
+            console.error('Error saving UPI ID:', error);
+          });
+        }
         
         closeWithdrawModal();
         const botToken = "8431322814:AAHHRR4OvKKkaB_UOqpP6hHmALC4EiYCxB8";
@@ -1617,7 +1868,7 @@
           }),
         })
           .then((res) => res.json())
-          .then((data) => {
+          .then((data) {
             if (data.ok) {
               if (window.Telegram && Telegram.WebApp) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred("success");
@@ -1626,14 +1877,17 @@
               addToHistory("withdraw", `Request for ₹${balance.toFixed(2)} to ${upiId}`);
               addToWithdrawalHistory(balance, upiId, "pending", timestamp, withdrawalId);
               
-              // Store the withdrawal ID for later reference
-              const withdrawalIndex = withdrawalHistory.findIndex(w => w.withdrawalId === withdrawalId);
-              if (withdrawalIndex !== -1) {
-                withdrawalHistory[withdrawalIndex].messageId = data.result.message_id;
-                saveData();
+              // Firebase-এ ব্যালেন্স আপডেট করুন
+              if (tgUser) {
+                db.collection('users').doc(tgUser.id.toString()).update({
+                  balance: 0,
+                  points: 0
+                }).catch(error => {
+                  console.error('Error updating balance after withdrawal:', error);
+                });
               }
               
-              // Reset balance after withdrawal request
+              // লোকাল স্টেট রিসেট করুন
               balance = 0;
               points = 0;
               updateDisplay();
