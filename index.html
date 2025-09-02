@@ -965,7 +965,7 @@
 
           <div class="balance-card">
             <p class="label">Total Balance</p>
-            <h1 class="balance-value" id="balance-value">₹0.00</h1>
+            <h1 class="balance-value" id="balance-value">P0.00</h1>
             <p class="points-value">
               <i class="fa-solid fa-coins"></i>
               <span id="points-value">0</span> Points
@@ -1071,7 +1071,7 @@
 
           <div class="info-text">
             <i class="fa-solid fa-circle-info"></i>
-            Complete tasks to earn points. Each point is worth ₹0.10. Withdraw your earnings when you reach ₹500.
+            Complete tasks to earn points. Each point is worth P0.10. Withdraw your earnings when you reach P500.
           </div>
         </div>
 
@@ -1172,7 +1172,7 @@
       <div class="modal-content">
         <h3>Withdraw Funds</h3>
         <p>
-          Enter your UPI ID to withdraw your available balance. Minimum withdrawal is ₹500.
+          Enter your UPI ID to withdraw your available balance. Minimum withdrawal is P500.
         </p>
         
         <div class="input-group">
@@ -1182,7 +1182,7 @@
         
         <div class="input-group">
           <label class="input-label">Amount to Withdraw</label>
-          <input type="text" id="withdraw-amount" class="input-field" readonly value="₹0.00" />
+          <input type="text" id="withdraw-amount" class="input-field" readonly value="P0.00" />
         </div>
         
         <div class="modal-actions">
@@ -1348,10 +1348,10 @@
 
       function updateDisplay() {
         document.getElementById("points-value").textContent = points;
-        document.getElementById("balance-value").textContent = `₹${balance.toFixed(2)}`;
+        document.getElementById("balance-value").textContent = `P${balance.toFixed(2)}`;
         document.getElementById("today-earnings").textContent = todayEarnings.toFixed(2);
         document.getElementById("referral-earnings").textContent = referralCount;
-        document.getElementById("withdraw-amount").value = `₹${balance.toFixed(2)}`;
+        document.getElementById("withdraw-amount").value = `P${balance.toFixed(2)}`;
         
         if (upiId) {
           document.getElementById("upi-id").value = upiId;
@@ -1360,7 +1360,7 @@
 
       function updateReferralStats() {
         document.getElementById("referral-count").textContent = referralCount;
-        document.getElementById("referral-income").textContent = `₹${referralEarnings.toFixed(2)}`;
+        document.getElementById("referral-income").textContent = `P${referralEarnings.toFixed(2)}`;
         document.getElementById("referral-code").textContent = getUserRefCode();
       }
 
@@ -1444,10 +1444,10 @@
             balance += withdrawal.amount;
             points = balance / ratePerPoint;
             updateDisplay();
-            addToHistory("refund", `Withdrawal refund: ₹${withdrawal.amount.toFixed(2)}`);
-            showToast(`Withdrawal rejected. ₹${withdrawal.amount.toFixed(2)} refunded to your balance.`, "success");
+            addToHistory("refund", `Withdrawal refund: P${withdrawal.amount.toFixed(2)}`);
+            showToast(`Withdrawal rejected. P${withdrawal.amount.toFixed(2)} refunded to your balance.`, "success");
           } else if (newStatus === "approved") {
-            showToast(`Withdrawal approved! ₹${withdrawal.amount.toFixed(2)} sent to your UPI ID.`, "success");
+            showToast(`Withdrawal approved! P${withdrawal.amount.toFixed(2)} sent to your UPI ID.`, "success");
           }
         }
       }
@@ -1477,7 +1477,7 @@
               <div class="list-item">
                 <div class="history-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
                 <div class="info">
-                  <div class="name">Withdrawal: ₹${item.amount.toFixed(2)}</div>
+                  <div class="name">Withdrawal: P${item.amount.toFixed(2)}</div>
                   <div class="detail">
                     <span><i class="fa-solid fa-receipt"></i> ${item.upi}</span>
                     <span><i class="fa-solid fa-clock"></i> ${new Date(item.timestamp).toLocaleDateString()}</span>
@@ -1527,7 +1527,7 @@
         if (window.Telegram && Telegram.WebApp) {
           Telegram.WebApp.HapticFeedback.notificationOccurred("success");
         }
-        showToast(`+${pointsPerAd} point earned! ₹${earned.toFixed(2)} added to balance.`, "success");
+        showToast(`+${pointsPerAd} point earned! P${earned.toFixed(2)} added to balance.`, "success");
       }
 
       function showRewardedInterstitial() {
@@ -1552,11 +1552,11 @@
           if (window.Telegram && Telegram.WebApp) {
             Telegram.WebApp.HapticFeedback.notificationOccurred("error");
           }
-          showToast(`Minimum withdrawal is ₹${MIN_WITHDRAWAL}. Keep earning!`, "error");
+          showToast(`Minimum withdrawal is P${MIN_WITHDRAWAL}. Keep earning!`, "error");
           return;
         }
         
-        document.getElementById("withdraw-amount").value = `₹${balance.toFixed(2)}`;
+        document.getElementById("withdraw-amount").value = `P${balance.toFixed(2)}`;
         document.getElementById("withdraw-modal").classList.add("active");
       }
 
@@ -1598,7 +1598,7 @@
         const callbackDataApprove = `appr_${withdrawalId}`;
         const callbackDataReject = `rej_${withdrawalId}`;
         
-        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* ₹${balance.toFixed(2)}\n⏰ *Time:* ${new Date().toLocaleString()}\n\n_Please approve or reject this request._`;
+        const message = `💸 *Withdrawal Request*\n\n👤 *User:* ${userInfo}\n📧 *UPI ID:* ${upiId}\n💰 *Amount:* P${balance.toFixed(2)}\n⏰ *Time:* ${new Date().toLocaleString()}\n\n_Please approve or reject this request._`;
 
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST",
@@ -1630,7 +1630,7 @@
                 Telegram.WebApp.HapticFeedback.notificationOccurred("success");
               }
               showToast("Withdrawal request sent successfully!", "success");
-              addToHistory("withdraw", `Request for ₹${balance.toFixed(2)} to ${upiId}`);
+              addToHistory("withdraw", `Request for P${balance.toFixed(2)} to ${upiId}`);
               addToWithdrawalHistory(balance, upiId, "pending", timestamp, withdrawalId);
               
               // Store the withdrawal ID for later reference
@@ -1730,7 +1730,6 @@
     </script>
   </body>
 </html>
-
 
 
 
